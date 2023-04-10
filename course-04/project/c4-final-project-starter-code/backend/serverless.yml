@@ -1,12 +1,11 @@
 org: cmaston
-app: serverless-todo-app
+app: todo-udacity-course-4-cmaston
 service: serverless-todo-app
 
 plugins:
   - serverless-webpack
   - serverless-iam-roles-per-function
   - serverless-plugin-tracing
-  - serverless-offline
   - serverless-reqvalidator-plugin
   - serverless-dynamodb-local
 
@@ -62,29 +61,32 @@ functions:
           path: todos
           cors: true
           authorizer: Auth
+          reqValidatorName: RequestBodyValidator
     iamRoleStatements:
-      -Effect: Allow
-      Action:
-        - dynamodb:Query
-        - dynamodb:GetItem
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
-
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}/index/${self:provider.environment.TODOS_CREATED_AT_INDEX}
+  
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
+    tracing: true
     events:
       - http:
           method: post
           path: todos
           cors: true
           authorizer: Auth
+          reqValidatorName: RequestBodyValidator
           request:
             schemas:
               application/json: ${file(models/create-todo-model.json)}
     iamRoleStatements:
-      -Effect: Allow
-      Action:
-        - dynamodb:PutItem
-      Resource: !GetAtt TodosTable.Arn
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt TodosTable.Arn
 
   UpdateTodo:
     handler: src/lambda/http/updateTodo.handler
@@ -94,6 +96,7 @@ functions:
           path: todos/{todoId}
           cors: true
           authorizer: Auth
+          reqValidatorName: RequestBodyValidator
           request:
             schemas:
               application/json: ${file(models/update-todo-model.json)}
@@ -111,6 +114,7 @@ functions:
           path: todos/{todoId}
           cors: true
           authorizer: Auth
+          reqValidatorName: RequestBodyValidator
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -125,6 +129,7 @@ functions:
           path: todos/{todoId}/attachment
           cors: true
           authorizer: Auth
+          reqValidatorName: RequestBodyValidator
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -204,3 +209,12 @@ resources:
             Action: "s3:GetObject"
             Resource: "arn:aws:s3:::${self:provider.environment.ATTACHMENT_S3_BUCKET}/*"
       Bucket: !Ref AttachmentsBucket
+
+  RequestBodyValidator:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: 'request-body-validator'
+      RestApiId:
+        Ref: ApiGatewayRestApi
+      ValidateRequestBody: true
+      ValidateRequestParameters: false
