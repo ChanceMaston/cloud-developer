@@ -21,7 +21,12 @@ export const handler = middy(
     // Get Todos for current user
     const todos = await getTodosForUser(current_user)
 
-    return todos
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        "items": todos
+      })
+    }
     
     } catch (error) {
       createError(error);
